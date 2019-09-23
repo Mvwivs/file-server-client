@@ -9,7 +9,7 @@ Client::~Client() {
 }
 
 Client::Client(const std::string& address, int port) : mainSocket(address, port), session(0) {
-	createSession(mainSocket);
+	createSession(mainSocket); // Создание сессии после установки соединения
 }
 
 std::vector<std::string> Client::getFileList() const {
@@ -20,10 +20,11 @@ std::vector<std::string> Client::getFileList() const {
 	if (recieved.getType() != Message::Command::FILE_LIST) {
 		throw std::runtime_error("Recieved unexpected data type");
 	}
+
 	std::vector<std::string> fileList;
 	std::stringstream ss(recieved.getFileListMessage());
 	std::string item;
-	while (std::getline(ss, item, '\n')) {
+	while (std::getline(ss, item, '\n')) { // Преобразование строки со списком файлов к массиву
 		fileList.push_back(std::move(item));
 	}
 
@@ -32,7 +33,6 @@ std::vector<std::string> Client::getFileList() const {
 
 std::string Client::getFile(std::string fileName) {
 	Message msg(Message::Command::GET_FILE, PREFFERED_CONNECTIONS, fileName);
-
 	Message::sendMessage(msg, mainSocket);
 
 	Message recieved = Message::recieveMessage(mainSocket);
@@ -51,6 +51,7 @@ void Client::readFile(std::size_t connCount, const std::string& filename, std::s
 
 	FileWriter fw(filename, connCount, fileSize);
 
+	// Функция чтения данных из сети и записи в файл
 	auto readPart = [packet = READ_BUFFER, &fw](std::size_t id, const Socket& sock, std::size_t len) {
 		std::size_t toRead = len;
 		char buf[packet];
@@ -64,22 +65,22 @@ void Client::readFile(std::size_t connCount, const std::string& filename, std::s
 				throw std::runtime_error("Cannot recieve expected data");
 			}
 			std::vector<char> data(buf, buf + recieved);
-			fw.write(id, data);
+			fw.write(id, data); // Запись в файл
 
 			toRead -= recieved;
 		}
 	};
 
-	std::vector<std::pair<std::thread, Socket>> pool;
+	std::vector<std::pair<std::thread, Socket>> pool; // Множество потоков и соединений для передачи файлов
 	for (std::size_t i = 0; i < connCount; ++i) {
 		Socket currSock(mainSocket.newConnection());
 		createSession(currSock);
 
 		std::size_t dataSize = fileSize / connCount;
 		if (i == connCount - 1) {
-			dataSize += fileSize % connCount;
+			dataSize += fileSize % connCount;	// Последний поток должен дочитать файл до конца
 		}
-		pool.push_back(make_pair(std::thread(readPart, i, currSock, dataSize), currSock));
+		pool.push_back(make_pair(std::thread(readPart, i, currSock, dataSize), currSock));	// Запуск чтения
 	}
 
 	for (std::size_t i = 0; i < connCount; ++i) {

@@ -75,7 +75,7 @@ void ConsoleClient::getFile(const std::string& name) {
 			std::cout << "Not connected" << std::endl;
 			return;
 		}
-		auto start = std::chrono::steady_clock::now();
+		auto start = std::chrono::steady_clock::now();	// Замер времени загрузки
 		std::string recievedFile = client->getFile(name);
 		auto end = std::chrono::steady_clock::now();
 		if (recievedFile.compare(name) != 0) {
@@ -91,7 +91,7 @@ void ConsoleClient::getFile(const std::string& name) {
 }
 
 bool ConsoleClient::isConnected() {
-	return client.operator bool();
+	return client.operator bool();	// Проверяет содержит ли указатель данные
 }
 
 const char* ConsoleClient::commands = {"connect <ip> <port> - connect to server\n"

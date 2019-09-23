@@ -48,34 +48,30 @@ std::size_t Message::getSizet(std::size_t pos) const {
 	return *(std::size_t*)&getData()[pos];
 }
 
-Message::Message(Command c, const std::string& fileList) {
-	header = c;
+Message::Message(Command c, const std::string& fileList) : header(c) {
 	appendData(fileList);
 }
 
-Message::Message(Command c, std::size_t session) {
-	header = c;
+Message::Message(Command c, std::size_t session) : header(c) {
 	appendData(session);
 }
 
-Message::Message(Command c, std::size_t connCount, const std::string& fileName) {
-	header = c;
+Message::Message(Command c, std::size_t connCount, const std::string& fileName) : header(c) {
 	appendData(connCount);
 	appendData(fileName);
 }
 
-Message::Message(Command c, std::size_t connCount, std::size_t fileSize) {
-	header = c;
+Message::Message(Command c, std::size_t connCount, std::size_t fileSize) : header(c) {
 	appendData(connCount);
 	appendData(fileSize);
 }
 
-void Message::appendData(const std::string& fileName) {
-	data.insert(data.end(), fileName.cbegin(), fileName.cend());
+void Message::appendData(const std::string& str) {
+	data.insert(data.end(), str.cbegin(), str.cend());
 }
 
-void Message::appendData(std::size_t connCount) {
-	data.insert(data.end(), (const char*)&connCount, (const char*)(&connCount + 1));
+void Message::appendData(std::size_t num) {
+	data.insert(data.end(), (const char*)&num, (const char*)(&num + 1));
 }
 
 void Message::setData(const std::vector<char> newData) {

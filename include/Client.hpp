@@ -13,29 +13,35 @@
 #include <string>
 #include <vector>
 
+// Реализует файловый клиент
 class Client {
 private:
-	Socket mainSocket;
-	std::size_t session;
-	struct sockaddr_in server;
+	Socket mainSocket;	 // Сокет для обмена командами
+	std::size_t session;       // Текущая сессия
+	struct sockaddr_in server; // Адрес сервера
 
-	const std::size_t PREFFERED_CONNECTIONS = 1;
-	const std::size_t READ_BUFFER = 1024;
+	const std::size_t PREFFERED_CONNECTIONS = 1; // Число соединений для передачи файлов
+	const std::size_t READ_BUFFER = 1024; // Размер буффера для чтения файлов
 
 public:
 	~Client();
 
+	// Выполяет подключение к серверу
 	Client(const std::string& address, int port);
+
+	// Выполяет получение списка файлов с сервера
 	std::vector<std::string> getFileList() const;
+
+	// Выполяет получение файла с сервера
 	std::string getFile(std::string fileName);
 
 private:
 	Client();
+	// Выполяет создание сессии с сервером
 	void createSession(const Socket& sock);
+
+	// Выполяет чтение файла из сети
 	void readFile(std::size_t connCount, const std::string& filename, std::size_t fileSize);
-	std::vector<char> readAllData(std::size_t len, const Socket& sock) const;
-	void createConnection(const std::string& address, int port);
-	int createConnection();
 };
 
 #endif /* CLIENT_HPP */
