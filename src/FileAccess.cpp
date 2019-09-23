@@ -10,8 +10,7 @@ FileWriter::~FileWriter() {
 	}
 }
 
-FileWriter::FileWriter(const std::string& fileName, std::size_t count,
-		       std::size_t fileSize) {
+FileWriter::FileWriter(const std::string& fileName, std::size_t count, std::size_t fileSize) {
 	file.open(fileName, std::fstream::out | std::fstream::binary);
 	if (!file.is_open()) {
 		throw std::runtime_error("Unable to create file");
@@ -42,8 +41,7 @@ FileReader::~FileReader() {
 	}
 }
 
-FileReader::FileReader(const std::string& fileName, std::size_t count,
-		       std::size_t fileSize) {
+FileReader::FileReader(const std::string& fileName, std::size_t count, std::size_t fileSize) {
 	file.open(fileName, std::fstream::in | std::fstream::binary);
 	if (!file.is_open()) {
 		throw std::runtime_error("Unable to create file");
@@ -64,7 +62,6 @@ void FileReader::read(std::size_t id, char* data, std::size_t len) {
 	file.read(data, len);
 	locations[id] = file.tellg();
 }
-
 
 bool isFileExists(const std::string& fileName) {
 	std::ifstream f(fileName);

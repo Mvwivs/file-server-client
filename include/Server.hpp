@@ -4,6 +4,7 @@
 
 #include "FileAccess.hpp"
 #include "Message.hpp"
+#include "Socket.hpp"
 
 #include <arpa/inet.h>
 #include <condition_variable>
@@ -20,16 +21,15 @@
 
 struct UserProcesser {
 	std::thread thread;
-	int commandSocket;
-	std::vector<int> sockets;
+	Socket commandSocket;
+	std::vector<Socket> sockets;
 };
 
 class Server {
 private:
 	std::mutex mtx;
 	std::condition_variable condVariable;
-	struct sockaddr_in serv_addr;
-	int masterSock;
+	ServerSocket masterSock;
 	std::unordered_map<std::size_t, UserProcesser> connections;
 	std::vector<std::size_t> endedSessions;
 	std::size_t sessionCounter;
@@ -45,15 +45,14 @@ public:
 
 private:
 	Server();
-	void serveClient(int clienSocket, std::size_t client);
-	Message recieveMessage(int sock) const;
-	std::vector<char> readAllData(std::size_t len, int sock) const;
-	void sendMessage(const Message& msg, int clientSocket) const;
-	void sendFile(const std::string& filename, std::size_t connCount,
-		      std::size_t filesize, std::size_t client);
-	static std::vector<char> sendAllData(int sock, std::size_t len,
-					     const char* buf);
-	std::size_t createSession(int sock);
+	void serveClient(const Socket& clienSocket, std::size_t client);
+	Message recieveMessage(const Socket& sock) const;
+	std::vector<char> readAllData(std::size_t len, const Socket& sock) const;
+	void sendMessage(const Message& msg, const Socket& clientSocket) const;
+	void sendFile(const std::string& filename, std::size_t connCount, std::size_t filesize,
+		      std::size_t client);
+	static std::vector<char> sendAllData(const Socket& sock, std::size_t len, const char* buf);
+	std::size_t createSession(const Socket& sock);
 	void clearEndedSessions();
 };
 

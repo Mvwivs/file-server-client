@@ -4,6 +4,7 @@
 
 #include "FileAccess.hpp"
 #include "Message.hpp"
+#include "Socket.hpp"
 
 #include <arpa/inet.h>
 #include <future>
@@ -17,7 +18,7 @@
 
 class Client {
 private:
-	int mainSocket;
+	Socket mainSocket;
 	std::size_t session;
 	struct sockaddr_in server;
 
@@ -29,18 +30,17 @@ public:
 
 	Client(const std::string& address, int port);
 	std::vector<std::string> getFileList() const;
-	void getFile(const std::string& fileName);
+	void getFile(std::string fileName);
 
 private:
 	Client();
-	void sendMessage(const Message& msg, int sock) const;
-	std::vector<char> readAllData(std::size_t len, int sock) const;
-	Message recieveMessage(int sock) const;
-	void readFile(std::size_t connCount, const std::string& filename,
-		      std::size_t fileSize);
+	void createSession(const Socket& sock);
+	void readFile(std::size_t connCount, const std::string& filename, std::size_t fileSize);
+	void sendMessage(const Message& msg, const Socket& sock) const;
+	std::vector<char> readAllData(std::size_t len, const Socket& sock) const;
+	Message recieveMessage(const Socket& sock) const;
 	void createConnection(const std::string& address, int port);
 	int createConnection();
-	void createSession(int sock);
 };
 
 #endif /* CLIENT_HPP */

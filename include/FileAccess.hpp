@@ -2,11 +2,11 @@
 #ifndef FILEACCESS_HPP
 #define FILEACCESS_HPP
 
+#include <experimental/filesystem>
 #include <fstream>
 #include <mutex>
 #include <string>
 #include <vector>
-#include <experimental/filesystem>
 
 class FileWriter {
 private:
@@ -15,8 +15,7 @@ private:
 	std::vector<std::streampos> locations;
 
 public:
-	FileWriter(const std::string& fileName, std::size_t count,
-		     std::size_t fileSize);
+	FileWriter(const std::string& fileName, std::size_t count, std::size_t fileSize);
 	~FileWriter();
 	void write(std::size_t id, const std::vector<char>& data);
 
@@ -31,8 +30,7 @@ private:
 	std::vector<std::streampos> locations;
 
 public:
-	FileReader(const std::string& fileName, std::size_t count,
-		   std::size_t fileSize);
+	FileReader(const std::string& fileName, std::size_t count, std::size_t fileSize);
 	~FileReader();
 
 	void read(std::size_t id, char* data, std::size_t len);

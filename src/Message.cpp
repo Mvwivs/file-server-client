@@ -1,11 +1,9 @@
 
 #include "Message.hpp"
 
-Message::Message() :
-	header(Command::ERROR) {
+Message::Message() : header(Command::ERROR) {
 }
-Message::Message(Command c) :
-	header(c) {
+Message::Message(Command c) : header(c) {
 }
 
 Message::~Message() {
@@ -20,6 +18,56 @@ std::vector<char> Message::createMessage() const {
 	msg.insert(msg.end(), std::begin(data), std::end(data));
 
 	return msg;
+}
+
+std::tuple<std::size_t, std::string> Message::getFileNameMessage() {
+	std::size_t connCount = getSizet(0);
+	const char* stringStart = data.data() + sizeof(std::size_t);
+	std::size_t stringLength = getSize() - sizeof(std::size_t);
+	std::string fileName(stringStart, stringLength);
+
+	return std::make_tuple(connCount, fileName);
+}
+
+std::tuple<std::size_t, std::size_t> Message::getFileMessage() {
+	std::size_t connCount = getSizet(0);
+	std::size_t fileSize = getSizet(sizeof(std::size_t));
+
+	return std::make_tuple(connCount, fileSize);
+}
+
+std::string Message::getFileListMessage() {
+	return std::string(getData(), getSize());
+}
+
+std::size_t Message::getSessionMessage() {
+	return getSizet(0);
+}
+
+std::size_t Message::getSizet(std::size_t pos) {
+	return *(std::size_t*)&getData()[pos];
+}
+
+Message::Message(Command c, const std::string& fileList) {
+	header = c;
+	appendData(fileList);
+}
+
+Message::Message(Command c, std::size_t session) {
+	header = c;
+	appendData(session);
+}
+
+Message::Message(Command c, std::size_t connCount, const std::string& fileName) {
+	header = c;
+	appendData(connCount);
+	appendData(fileName);
+}
+
+Message::Message(Command c, std::size_t connCount, std::size_t fileSize) {
+	header = c;
+	appendData(connCount);
+	appendData(fileSize);
 }
 
 void Message::appendData(const std::string& fileName) {

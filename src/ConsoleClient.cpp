@@ -60,8 +60,7 @@ void ConsoleClient::getFileList() {
 			std::cout << "Not connected" << std::endl;
 			return;
 		}
-		std::vector<std::string> files(
-		    std::move(client->getFileList()));
+		std::vector<std::string> files(std::move(client->getFileList()));
 		for (const auto& f : files) {
 			std::cout << f << std::endl;
 		}
@@ -79,12 +78,9 @@ void ConsoleClient::getFile(const std::string& name) {
 		auto start = std::chrono::steady_clock::now();
 		client->getFile(name);
 		auto end = std::chrono::steady_clock::now();
-		std::cout
-		    << "Download completed in "
-		    << std::chrono::duration_cast<std::chrono::milliseconds>(
-			   end - start)
-			   .count()
-		    << " ms" << std::endl;
+		std::cout << "Download completed in "
+			  << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms"
+			  << std::endl;
 	} catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
@@ -94,10 +90,9 @@ bool ConsoleClient::isConnected() {
 	return client.operator bool();
 }
 
-const char* ConsoleClient::commands = {
-    "connect <ip> <port> - connect to server\n"
-    "disconnect - disconnect from server\n"
-    "list - get list of files from server\n"
-    "get <filename> - get file from server\n"
-    "exit - exit program\n"
-    "help - show help\n"};
+const char* ConsoleClient::commands = {"connect <ip> <port> - connect to server\n"
+				       "disconnect - disconnect from server\n"
+				       "list - get list of files from server\n"
+				       "get <filename> - get file from server\n"
+				       "exit - exit program\n"
+				       "help - show help\n"};
