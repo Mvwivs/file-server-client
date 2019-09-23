@@ -22,15 +22,10 @@ Server::~Server() {
 }
 
 void Server::startListening() {
-	if (listen(masterSock.getSock(), QUEUE_LENGTH) < 0) {
-		throw std::runtime_error("Unable to start listenning");
-	}
+	masterSock.listenSocket(QUEUE_LENGTH);
 
 	while (true) {
-		struct sockaddr_in cli_addr;
-		socklen_t clilen = sizeof(cli_addr);
-		int acceptedSocket = accept(masterSock.getSock(), (struct sockaddr*)&cli_addr, &clilen);
-		Socket newSock(acceptedSocket, cli_addr);
+		Socket newSock = masterSock.acceptSocket();
 		std::size_t session = createSession(newSock);
 
 #ifdef _DEBUG
@@ -55,42 +50,33 @@ void Server::startListening() {
 void Server::serveClient(const Socket& clientSocket, std::size_t client) {
 	while (true) {
 		try {
-			Message msg = recieveMessage(clientSocket);
-
+			Message msg = Message::recieveMessage(clientSocket);
 			switch (msg.getType()) {
 				case Message::Command::GET_FILE: {
 					auto [connCount, fileName] = msg.getFileNameMessage();
-
 					if (isFileExists(fileName)) {
-						if (connCount > FILE_CONNECTIONS) {
-							connCount = FILE_CONNECTIONS;
-						}
+						connCount = std::min(connCount, FILE_CONNECTIONS);
 						std::size_t fileSize = getFileSize(fileName);
 						Message command(Message::Command::OPEN_CONN, connCount, fileSize);
-
-						sendMessage(command, clientSocket);
+						Message::sendMessage(command, clientSocket);
 						sendFile(fileName, connCount, fileSize, client);
 					}
 					else {
 						Message command(Message::Command::NOT_EXISTS);
-						sendMessage(command, clientSocket);
+						Message::sendMessage(command, clientSocket);
 					}
 					break;
 				}
 				case Message::Command::GET_FILE_LIST: {
 					Message command(Message::Command::FILE_LIST, getFileList());
-
-					sendMessage(command, clientSocket);
+					Message::sendMessage(command, clientSocket);
 					break;
 				}
 				default: {
-					throw std::runtime_error("Server got unexpected command in "
-								 "a "
-								 "Message");
+					throw std::runtime_error("Server got unexpected command in a Message");
 					break;
 				}
 			}
-
 		} catch (const HostDisconnectedException& e) {
 #ifdef _DEBUG
 			std::cout << "Client disconnected " << client << std::endl;
@@ -110,17 +96,18 @@ void Server::sendFile(const std::string& filename, std::size_t connCount, std::s
 			condVariable.wait(lck);
 	}
 	FileReader fr(filename, connCount, filesize);
+
 	auto sendPart = [packet = BUFFER_SIZE, &fr](std::size_t id, const Socket& sock, std::size_t len) {
 		std::size_t toRead = len;
 		char buf[packet];
 		while (true) {
 			if (toRead < packet) {
 				fr.read(id, buf, toRead);
-				sendAllData(sock, toRead, buf);
+				sock.sendAllData(buf, toRead);
 				return;
 			}
 			fr.read(id, buf, packet);
-			sendAllData(sock, packet, buf);
+			sock.sendAllData(buf, packet);
 
 			toRead -= packet;
 		}
@@ -149,74 +136,19 @@ void Server::sendFile(const std::string& filename, std::size_t connCount, std::s
 	}
 }
 
-Message Server::recieveMessage(const Socket& sock) const {
-	Message msg(*(Message::Command*)(&readAllData(sizeof(Message::Command), sock)[0]));
-	if (msg.getType() != Message::Command::ERROR) {
-		std::size_t dataSize = *(std::size_t*)&readAllData(sizeof(std::size_t), sock)[0];
-		msg.setData(readAllData(dataSize, sock));
-	}
-	return msg;
-}
-
-std::vector<char> Server::readAllData(std::size_t len, const Socket& sock) const {
-	std::size_t toRead = len;
-	std::vector<char> data;
-	char buf[BUFFER_SIZE];
-	char* ptr = buf;
-
-	while (toRead > 0) {
-		ssize_t recieved = read(sock.getSock(), ptr, std::min(toRead, BUFFER_SIZE));
-		if (recieved == -1) {
-			throw std::runtime_error("Server got an error while recieving data");
-		}
-		if (recieved == 0) {
-			throw HostDisconnectedException();
-		}
-		data.insert(data.end(), ptr, ptr + recieved);
-		toRead -= recieved;
-	}
-
-	return data;
-}
-
-std::vector<char> Server::sendAllData(const Socket& sock, std::size_t len, const char* buf) {
-	std::size_t toSend = len;
-	std::vector<char> data;
-
-	while (toSend > 0) {
-		ssize_t sent = write(sock.getSock(), buf, toSend);
-		if (sent == -1) {
-			throw std::runtime_error("Error while sending data by server");
-		}
-		if (sent == 0) {
-			throw std::runtime_error("Server cannot send data");
-		}
-		buf += sent;
-		toSend -= sent;
-	}
-
-	return data;
-}
-
-void Server::sendMessage(const Message& msg, const Socket& clientSocket) const {
-	std::vector<char> data = msg.createMessage();
-	sendAllData(clientSocket, data.size(), &data[0]);
-}
-
 std::size_t Server::createSession(const Socket& sock) {
-	Message recieved = recieveMessage(sock);
+	Message recieved = Message::recieveMessage(sock);
 	if (recieved.getType() != Message::Command::SESSION_ID) {
 		throw std::runtime_error("Server unable to create session");
 	}
-	std::size_t session = *(std::size_t*)&recieved.getData()[0];
+	std::size_t session = recieved.getSessionMessage();
 	if (session == 0) {
 		session = sessionCounter;
 		++sessionCounter;
 	}
 
-	Message msg(Message::Command::SESSION_ID);
-	msg.appendData(session);
-	sendMessage(msg, sock);
+	Message msg(Message::Command::SESSION_ID, session);
+	Message::sendMessage(msg, sock);
 
 	return session;
 }

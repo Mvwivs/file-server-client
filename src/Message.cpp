@@ -20,7 +20,7 @@ std::vector<char> Message::createMessage() const {
 	return msg;
 }
 
-std::tuple<std::size_t, std::string> Message::getFileNameMessage() {
+std::tuple<std::size_t, std::string> Message::getFileNameMessage() const {
 	std::size_t connCount = getSizet(0);
 	const char* stringStart = data.data() + sizeof(std::size_t);
 	std::size_t stringLength = getSize() - sizeof(std::size_t);
@@ -29,22 +29,22 @@ std::tuple<std::size_t, std::string> Message::getFileNameMessage() {
 	return std::make_tuple(connCount, fileName);
 }
 
-std::tuple<std::size_t, std::size_t> Message::getFileMessage() {
+std::tuple<std::size_t, std::size_t> Message::getFileMessage() const {
 	std::size_t connCount = getSizet(0);
 	std::size_t fileSize = getSizet(sizeof(std::size_t));
 
 	return std::make_tuple(connCount, fileSize);
 }
 
-std::string Message::getFileListMessage() {
+std::string Message::getFileListMessage() const {
 	return std::string(getData(), getSize());
 }
 
-std::size_t Message::getSessionMessage() {
+std::size_t Message::getSessionMessage() const {
 	return getSizet(0);
 }
 
-std::size_t Message::getSizet(std::size_t pos) {
+std::size_t Message::getSizet(std::size_t pos) const {
 	return *(std::size_t*)&getData()[pos];
 }
 
@@ -92,4 +92,18 @@ const char* Message::getData() const {
 
 std::size_t Message::getSize() const {
 	return data.size();
+}
+
+void Message::sendMessage(const Message& msg, const Socket& clientSocket) {
+	std::vector<char> data = msg.createMessage();
+	clientSocket.sendAllData(&data[0], data.size());
+}
+
+Message Message::recieveMessage(const Socket& sock) {
+	Message msg(*(Message::Command*)(&sock.readAllData(sizeof(Message::Command))[0]));
+	if (msg.getType() != Message::Command::ERROR) {
+		std::size_t dataSize = *(std::size_t*)&sock.readAllData(sizeof(std::size_t))[0];
+		msg.setData(sock.readAllData(dataSize));
+	}
+	return msg;
 }

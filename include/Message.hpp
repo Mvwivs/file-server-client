@@ -2,6 +2,8 @@
 #ifndef MESSAGE_HPP
 #define MESSAGE_HPP
 
+#include "Socket.hpp"
+
 #include <string>
 #include <tuple>
 #include <vector>
@@ -24,22 +26,24 @@ public:
 	Message(Command c, std::size_t connCount, const std::string& fileName);
 	Message(Command c, std::size_t connCount, std::size_t fileSize);
 
-	std::tuple<std::size_t, std::string> getFileNameMessage();
-	std::size_t getSessionMessage();
-	std::string getFileListMessage();
-	std::tuple<std::size_t, std::size_t> getFileMessage();
+	std::tuple<std::size_t, std::string> getFileNameMessage() const;
+	std::size_t getSessionMessage() const;
+	std::string getFileListMessage() const;
+	std::tuple<std::size_t, std::size_t> getFileMessage() const;
 
 	std::vector<char> createMessage() const;
 	Command getType() const;
 	const char* getData() const;
 	std::size_t getSize() const;
-	void appendData(const std::string& fileName); // TODO: rename
-	void appendData(std::size_t connCount);       // TODO: rename
 	void setData(const std::vector<char> newData);
 
+	static void sendMessage(const Message& msg, const Socket& clientSocket);
+	static Message recieveMessage(const Socket& sock);
+	
 private:
-	std::size_t getSizet(std::size_t pos);
-
+	std::size_t getSizet(std::size_t pos) const;
+	void appendData(const std::string& fileName);
+	void appendData(std::size_t connCount);
 };
 
 #endif /* MESSAGE_HPP */

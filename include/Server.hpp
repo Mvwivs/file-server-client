@@ -6,16 +6,12 @@
 #include "Message.hpp"
 #include "Socket.hpp"
 
-#include <arpa/inet.h>
 #include <condition_variable>
-#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
-#include <sys/socket.h>
 #include <thread>
-#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
@@ -47,24 +43,11 @@ private:
 	Server();
 	void serveClient(const Socket& clienSocket, std::size_t client);
 	Message recieveMessage(const Socket& sock) const;
-	std::vector<char> readAllData(std::size_t len, const Socket& sock) const;
 	void sendMessage(const Message& msg, const Socket& clientSocket) const;
 	void sendFile(const std::string& filename, std::size_t connCount, std::size_t filesize,
 		      std::size_t client);
-	static std::vector<char> sendAllData(const Socket& sock, std::size_t len, const char* buf);
 	std::size_t createSession(const Socket& sock);
 	void clearEndedSessions();
-};
-
-class HostDisconnectedException : public std::exception {
-	std::string what_msg;
-
-public:
-	HostDisconnectedException() : what_msg("Host disconnected") {
-	}
-	const char* what() {
-		return what_msg.c_str();
-	}
 };
 
 #endif /* SERVER_HPP */
