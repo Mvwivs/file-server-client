@@ -76,8 +76,12 @@ void ConsoleClient::getFile(const std::string& name) {
 			return;
 		}
 		auto start = std::chrono::steady_clock::now();
-		client->getFile(name);
+		std::string recievedFile = client->getFile(name);
 		auto end = std::chrono::steady_clock::now();
+		if (recievedFile.compare(name) != 0) {
+			std::cout << "File " << name << " already exists, creating new file: " << recievedFile
+				  << std::endl;
+		}
 		std::cout << "Download completed in "
 			  << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms"
 			  << std::endl;
