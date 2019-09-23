@@ -6,8 +6,10 @@
 #include "Message.hpp"
 
 #include <arpa/inet.h>
+#include <condition_variable>
 #include <experimental/filesystem>
 #include <fstream>
+#include <iostream>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -17,18 +19,20 @@
 #include <unordered_map>
 #include <vector>
 
+
 struct UserProcesser {
 	std::thread thread;
+	int commandSocket;
 	std::vector<int> sockets;
 };
 
 class Server {
 private:
 	std::mutex mtx;
+	std::condition_variable condVariable;
 	struct sockaddr_in serv_addr;
 	int masterSock;
-	std::unordered_map<std::size_t, UserProcesser>
-	    connections;
+	std::unordered_map<std::size_t, UserProcesser> connections;
 	std::vector<std::size_t> endedSessions;
 	std::size_t sessionCounter;
 
@@ -39,10 +43,10 @@ private:
 public:
 	Server(int port);
 	~Server();
+	void startListening();
 
 private:
 	Server();
-	void startListening();
 	void serveClient(int clienSocket, std::size_t client);
 	std::string getFileList() const;
 	Message recieveMessage(int sock) const;
@@ -53,15 +57,17 @@ private:
 	void sendFile(const std::string& filename, std::size_t connCount,
 		      std::size_t filesize, std::size_t client);
 	static std::vector<char> sendAllData(int sock, std::size_t len,
-				      const char* buf);
+					     const char* buf);
 	std::size_t createSession(int sock);
+	void clearEndedSessions();
 };
 
 class HostDisconnectedException : public std::exception {
 	std::string what_msg;
 
 public:
-	HostDisconnectedException() : what_msg("Host disconnected") {}
+	HostDisconnectedException() : what_msg("Host disconnected") {
+	}
 	const char* what() {
 		return what_msg.c_str();
 	}

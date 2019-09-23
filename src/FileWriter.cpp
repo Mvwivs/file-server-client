@@ -11,8 +11,7 @@ FileWriter::~FileWriter() {
 }
 
 FileWriter::FileWriter(const std::string& fileName, std::size_t count, std::size_t fileSize) {
-	//file.open(fileName, std::fstream::out | std::fstream::binary);
-	file.open("test_recieved.txt", std::fstream::out | std::fstream::binary);
+	file.open(fileName, std::fstream::out | std::fstream::binary);
 	if (!file.is_open()) {
 		throw std::runtime_error("Unable to create file");
 	}

@@ -27,6 +27,7 @@ FileReader::FileReader(const std::string& fileName, std::size_t count,
 }
 
 void FileReader::read(std::size_t id, char* data, std::size_t len) {
+	std::lock_guard<std::mutex> lck(mtx);
 	std::streampos currPos = locations[id];
 	file.seekg(currPos);
 	file.read(data, len);

@@ -5,10 +5,12 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <mutex>
 
 class FileReader {
 private:
 	std::ifstream file;
+	std::mutex mtx;
 	std::vector<std::streampos> locations;
 
 public:

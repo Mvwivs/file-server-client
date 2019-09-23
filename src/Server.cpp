@@ -17,26 +17,29 @@ Server::Server(int port) : sessionCounter(1) {
 	    0) {
 		throw std::runtime_error("Unable to bind port");
 	}
-
-	if (listen(masterSock, QUEUE_LENGTH) < 0) {
-		throw std::runtime_error("Unable to start listenning");
-	}
-	startListening();
 }
 
 Server::~Server() {
+	clearEndedSessions();
+	while (connections.size() != 0) {
+		auto it = connections.begin();
+		if (it->second.thread.joinable()) {
+			it->second.thread.join();
+		}
+		int commandSocket = it->second.commandSocket;
+		connections.erase(it);
+		close(commandSocket);
+	}
 	if (masterSock != -1) {
 		close(masterSock);
-	}
-	while (endedSessions.size() != 0) {
-		std::size_t last = *endedSessions.cend();
-		connections[last].thread.join();
-		connections.erase(last);
-		endedSessions.pop_back();
 	}
 }
 
 void Server::startListening() {
+	if (listen(masterSock, QUEUE_LENGTH) < 0) {
+		throw std::runtime_error("Unable to start listenning");
+	}
+
 	while (true) {
 		struct sockaddr_in cli_addr;
 		socklen_t clilen = sizeof(cli_addr);
@@ -45,25 +48,23 @@ void Server::startListening() {
 
 		std::size_t session = createSession(newSock);
 
+#ifdef _DEBUG
+		std::cout << "Client connected " << session << std::endl;
+#endif
 		{
 			std::lock_guard<std::mutex> lck(mtx);
 			if (connections.find(session) != connections.cend()) {
 				connections[session].sockets.push_back(newSock);
+				condVariable.notify_all();
 			}
 			else {
-				connections[session] = UserProcesser();
-				connections[session].thread =
+				connections[session] = UserProcesser{
 				    std::thread(&Server::serveClient, this,
-						newSock, session);
-			}
-
-			while (endedSessions.size() != 0) {
-				std::size_t last = *endedSessions.cend();
-				connections[last].thread.join();
-				connections.erase(last);
-				endedSessions.pop_back();
+						newSock, session),
+				    newSock, std::vector<int>()};
 			}
 		}
+		clearEndedSessions();
 	}
 }
 
@@ -74,8 +75,9 @@ void Server::serveClient(int clientSocket, std::size_t client) {
 			if (msg.getType() == Message::Command::GET_FILE) {
 				std::size_t connCount =
 				    *(std::size_t*)&msg.getData()[0];
-				std::string fileName(msg.getData() +
-						     sizeof(std::size_t));
+				std::string fileName(
+				    msg.getData() + sizeof(std::size_t),
+				    msg.getSize() - sizeof(std::size_t));
 				if (isFileExists(fileName)) {
 					if (connCount > FILE_CONNECTIONS) {
 						connCount = FILE_CONNECTIONS;
@@ -92,7 +94,7 @@ void Server::serveClient(int clientSocket, std::size_t client) {
 				}
 				else {
 					Message command(
-					    Message::Command::ERROR);
+					    Message::Command::NOT_EXISTS);
 					sendMessage(command, clientSocket);
 				}
 			}
@@ -105,9 +107,14 @@ void Server::serveClient(int clientSocket, std::size_t client) {
 			}
 			else {
 				throw std::runtime_error(
-				    "Unexpected command in a Message");
+				    "Server got unexpected command in a "
+				    "Message");
 			}
 		} catch (const HostDisconnectedException& e) {
+#ifdef _DEBUG
+			std::cout << "Client disconnected " << client
+				  << std::endl;
+#endif
 			std::lock_guard<std::mutex> lck(mtx);
 			endedSessions.push_back(client);
 			return;
@@ -117,31 +124,35 @@ void Server::serveClient(int clientSocket, std::size_t client) {
 
 void Server::sendFile(const std::string& filename, std::size_t connCount,
 		      std::size_t filesize, std::size_t client) {
-	while (connections[client].sockets.size() != connCount)
-		sleep(1); //!!!!!!!!!!!!!!
-
+	{
+		std::unique_lock<std::mutex> lck(mtx);
+		while (connections[client].sockets.size() != connCount)
+			condVariable.wait(lck);
+	}
 	FileReader fr(filename, connCount, filesize);
 	auto sendPart = [&fr](std::size_t id, int sock, std::size_t len) {
 		std::size_t toRead = len;
 		const std::size_t packet = 1024;
 		char buf[packet];
-		if (toRead < packet) {
-			fr.read(id, buf, toRead);
-			sendAllData(sock, toRead, buf);
-			return;
-		}
-		fr.read(id, buf, packet);
-		sendAllData(sock, packet, buf);
+		while (true) {
+			if (toRead < packet) {
+				fr.read(id, buf, toRead);
+				sendAllData(sock, toRead, buf);
+				return;
+			}
+			fr.read(id, buf, packet);
+			sendAllData(sock, packet, buf);
 
-		toRead -= packet;
+			toRead -= packet;
+		}
 	};
 
 	std::vector<std::pair<std::thread, int>> pool;
 	for (std::size_t i = 0; i < connCount; ++i) {
 		std::size_t dataSize = filesize / connCount;
 		int currSock = -1;
-		if ((i == connCount - 1) && (filesize % connCount != 0)) {
-			dataSize += 1;
+		if (i == connCount - 1) {
+			dataSize += filesize % connCount;
 		}
 		{
 			std::lock_guard<std::mutex> lck(mtx);
@@ -153,6 +164,10 @@ void Server::sendFile(const std::string& filename, std::size_t connCount,
 	for (std::size_t i = 0; i < connCount; ++i) {
 		pool[i].first.join();
 		close(pool[i].second);
+	}
+	{
+		std::lock_guard<std::mutex> lck(mtx);
+		connections[client].sockets.clear();
 	}
 }
 
@@ -195,16 +210,16 @@ std::vector<char> Server::readAllData(std::size_t len, int sock) const {
 	char* ptr = buf;
 
 	while (toRead > 0) {
-		ssize_t recieved = read(sock, ptr, toRead);
+		ssize_t recieved =
+		    read(sock, ptr, std::min(toRead, BUFFER_SIZE));
 		if (recieved == -1) {
-			throw std::runtime_error("Error while recieving data");
+			throw std::runtime_error(
+			    "Server got an error while recieving data");
 		}
 		if (recieved == 0) {
-			throw std::runtime_error(
-			    "Cannot recieve expected data");
+			throw HostDisconnectedException();
 		}
 		data.insert(data.end(), ptr, ptr + recieved);
-		ptr += recieved;
 		toRead -= recieved;
 	}
 
@@ -219,10 +234,11 @@ std::vector<char> Server::sendAllData(int sock, std::size_t len,
 	while (toRead > 0) {
 		ssize_t sent = write(sock, buf, toRead);
 		if (sent == -1) {
-			throw std::runtime_error("Error while sending data");
+			throw std::runtime_error(
+			    "Error while sending data by server");
 		}
 		if (sent == 0) {
-			throw std::runtime_error("Cannot send data");
+			throw std::runtime_error("Server cannot send data");
 		}
 		buf += sent;
 		toRead -= sent;
@@ -237,10 +253,9 @@ void Server::sendMessage(const Message& msg, int clientSocket) const {
 }
 
 std::size_t Server::createSession(int sock) {
-
 	Message recieved = recieveMessage(sock);
 	if (recieved.getType() != Message::Command::SESSION_ID) {
-		throw std::runtime_error("Unable to create session");
+		throw std::runtime_error("Server unable to create session");
 	}
 	std::size_t session = *(std::size_t*)&recieved.getData()[0];
 	if (session == 0) {
@@ -253,4 +268,16 @@ std::size_t Server::createSession(int sock) {
 	sendMessage(msg, sock);
 
 	return session;
+}
+
+void Server::clearEndedSessions() {
+	std::lock_guard<std::mutex> lck(mtx);
+	while (endedSessions.size() != 0) {
+		std::size_t last = endedSessions.back();
+		connections[last].thread.join();
+		close(connections[last].commandSocket);
+
+		connections.erase(last);
+		endedSessions.pop_back();
+	}
 }

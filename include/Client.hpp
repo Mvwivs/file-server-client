@@ -10,6 +10,7 @@
 #include <vector>
 #include <sstream>
 #include <future>
+#include <iostream>
 
 #include "Message.hpp"
 #include "FileWriter.hpp"
@@ -20,7 +21,7 @@ private:
 	std::size_t session;
 	struct sockaddr_in server;
 
-	const std::size_t PREFFERED_CONNECTIONS = 4;
+	const std::size_t PREFFERED_CONNECTIONS = 2;
 	const std::size_t READ_BUFFER = 1024;
 
 public:

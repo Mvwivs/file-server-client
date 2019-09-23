@@ -9,7 +9,7 @@ class Message
 {
 public:
 	enum class Command {
-		ERROR = 0, SESSION_ID, GET_FILE_LIST, GET_FILE, FILE_LIST, OPEN_CONN
+		ERROR = 0, SESSION_ID, GET_FILE_LIST, GET_FILE, FILE_LIST, OPEN_CONN, NOT_EXISTS
 	};
 private:
 	Command header;
