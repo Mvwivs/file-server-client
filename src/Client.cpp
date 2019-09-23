@@ -132,7 +132,7 @@ void Client::readFile(std::size_t connCount, const std::string& filename,
 
 	FileWriter fw(filename, connCount, fileSize);
 
-	auto readPart = [&fw](std::size_t id, int sock, std::size_t len) {
+	auto readPart = [packet = READ_BUFFER, &fw](std::size_t id, int sock, std::size_t len) {
 		std::size_t toRead = len;
 		const std::size_t packet = 1024;
 		char buf[packet];

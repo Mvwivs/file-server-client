@@ -2,12 +2,11 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include "FileReader.hpp"
+#include "FileAccess.hpp"
 #include "Message.hpp"
 
 #include <arpa/inet.h>
 #include <condition_variable>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -18,7 +17,6 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
-
 
 struct UserProcesser {
 	std::thread thread;
@@ -48,12 +46,9 @@ public:
 private:
 	Server();
 	void serveClient(int clienSocket, std::size_t client);
-	std::string getFileList() const;
 	Message recieveMessage(int sock) const;
 	std::vector<char> readAllData(std::size_t len, int sock) const;
 	void sendMessage(const Message& msg, int clientSocket) const;
-	bool isFileExists(const std::string& fileName) const;
-	std::size_t getFileSize(const std::string& filename) const;
 	void sendFile(const std::string& filename, std::size_t connCount,
 		      std::size_t filesize, std::size_t client);
 	static std::vector<char> sendAllData(int sock, std::size_t len,

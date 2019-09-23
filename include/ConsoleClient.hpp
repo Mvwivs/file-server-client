@@ -1,8 +1,10 @@
 
 #include "Client.hpp"
-#include <string>
-#include <memory>
+
+#include <chrono>
 #include <iostream>
+#include <memory>
+#include <string>
 #include <vector>
 
 class ConsoleClient {
@@ -20,4 +22,7 @@ private:
 	void disconnect();
 	void getFileList();
 	void getFile(const std::string& name);
+	bool isConnected();
+
+	static const char* commands;
 };

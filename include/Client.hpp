@@ -2,18 +2,18 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
+#include "FileAccess.hpp"
+#include "Message.hpp"
+
 #include <arpa/inet.h>
+#include <future>
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <vector>
-#include <sstream>
-#include <future>
-#include <iostream>
-
-#include "Message.hpp"
-#include "FileWriter.hpp"
 
 class Client {
 private:
@@ -21,8 +21,8 @@ private:
 	std::size_t session;
 	struct sockaddr_in server;
 
-	const std::size_t PREFFERED_CONNECTIONS = 2;
-	const std::size_t READ_BUFFER = 1024;
+	const std::size_t PREFFERED_CONNECTIONS = 1;
+	const std::size_t READ_BUFFER = 1024 * 1024;
 
 public:
 	~Client();
@@ -36,7 +36,8 @@ private:
 	void sendMessage(const Message& msg, int sock) const;
 	std::vector<char> readAllData(std::size_t len, int sock) const;
 	Message recieveMessage(int sock) const;
-	void readFile(std::size_t connCount, const std::string& filename, std::size_t fileSize);
+	void readFile(std::size_t connCount, const std::string& filename,
+		      std::size_t fileSize);
 	void createConnection(const std::string& address, int port);
 	int createConnection();
 	void createSession(int sock);

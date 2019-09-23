@@ -6,7 +6,7 @@ Server::Server() : masterSock(-1), sessionCounter(1) {
 
 Server::Server(int port) : sessionCounter(1) {
 	masterSock = socket(AF_INET, SOCK_STREAM, 0);
-	if (masterSock == -1) {
+	if (masterSock < 0 || masterSock > 65536) {
 		throw std::runtime_error("Unable to create socket");
 	}
 
@@ -130,9 +130,8 @@ void Server::sendFile(const std::string& filename, std::size_t connCount,
 			condVariable.wait(lck);
 	}
 	FileReader fr(filename, connCount, filesize);
-	auto sendPart = [&fr](std::size_t id, int sock, std::size_t len) {
+	auto sendPart = [packet = BUFFER_SIZE, &fr](std::size_t id, int sock, std::size_t len) {
 		std::size_t toRead = len;
-		const std::size_t packet = 1024;
 		char buf[packet];
 		while (true) {
 			if (toRead < packet) {
@@ -171,27 +170,6 @@ void Server::sendFile(const std::string& filename, std::size_t connCount,
 	}
 }
 
-std::string Server::getFileList() const {
-	namespace fs = std::experimental::filesystem;
-	std::stringstream fileList;
-	for (const auto& entry : fs::directory_iterator(".")) {
-		if (entry.status().type() != fs::file_type::directory) {
-			fileList << entry.path() << '\n';
-		}
-	}
-	return fileList.str();
-}
-
-bool Server::isFileExists(const std::string& fileName) const {
-	std::ifstream f(fileName);
-	return f.good();
-}
-
-std::size_t Server::getFileSize(const std::string& filename) const {
-	namespace fs = std::experimental::filesystem;
-	return fs::file_size(filename);
-}
-
 Message Server::recieveMessage(int sock) const {
 	Message msg(*(Message::Command*)(&readAllData(sizeof(Message::Command),
 						      sock)[0]));
@@ -228,11 +206,11 @@ std::vector<char> Server::readAllData(std::size_t len, int sock) const {
 
 std::vector<char> Server::sendAllData(int sock, std::size_t len,
 				      const char* buf) {
-	std::size_t toRead = len;
+	std::size_t toSend = len;
 	std::vector<char> data;
 
-	while (toRead > 0) {
-		ssize_t sent = write(sock, buf, toRead);
+	while (toSend > 0) {
+		ssize_t sent = write(sock, buf, toSend);
 		if (sent == -1) {
 			throw std::runtime_error(
 			    "Error while sending data by server");
@@ -241,7 +219,7 @@ std::vector<char> Server::sendAllData(int sock, std::size_t len,
 			throw std::runtime_error("Server cannot send data");
 		}
 		buf += sent;
-		toRead -= sent;
+		toSend -= sent;
 	}
 
 	return data;
